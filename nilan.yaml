@@ -1,0 +1,137 @@
+# Author: Mats Faugli (thanks to Jakob Moll)
+# Description:  Nilan Compact P CTS700 package definition
+# Inspiration: https://gist.github.com/jakobmoll/96d67a6e3c98b1742230057c5923da63
+# Spec: https://symlink.dk/stuff/CTS700_MODBUS-rev%202.01.pdf
+# Docs: https://www.home-assistant.io/integrations/modbus
+
+modbus:
+  - name: nilan
+    type: tcp
+    host: 192.168.10.99
+    port: 502
+    climates:
+      - name: "Nilan CompactP"
+        target_temp_register: 4746
+        address: 5154
+        min_temp: 10
+        max_temp: 30
+        temp_step: 1
+        precision: 1
+        scale: 0.1
+        slave: 1
+        hvac_mode_register:
+          address: 5432
+          values:
+            state_heat: 2
+            state_cool: 3
+              #        fan_mode_register:
+              #          address: 3700
+              #          values:
+              #            state_fan_low: 45
+              #            state_fan_medium: 55
+              #            state_fan_high: 65
+    sensors:
+      - name: Utetemperatur # T1
+        address: 5152
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Tilluftstemperatur # T2
+        address: 5153
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Avtrekkstemperatur # T3
+        address: 5154
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Avkastluft etter veksler # T4
+        address: 5155
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Avkastluft etter varmepumpe # T5
+        address: 5156
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Fordampertemperatur # T6
+        address: 5157
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Varmtvann topp
+        address: 5162
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Varmtvann bunn
+        address: 5163
+        precision: 1
+        scale: 0.1
+        slave: 1
+        unit_of_measurement: "°C"
+      - name: Fuktighet
+        address: 4716
+        slave: 1
+        device_class: humidity
+        unit_of_measurement: "%"
+      - name: Ekstern varme
+        address: 5019
+        slave: 1
+          # Device On = 1
+          # Device Off = 2
+      - name: nilan_fan_setpoint
+        address: 4747
+        offset: -100
+        slave: 1
+    switches:
+      - name: Pause ventilasjon
+        address: 4727
+        slave: 1
+
+input_select:
+  nilan_fan_speed:
+    name: Nilan Fan Speed
+    icon: mdi:fan
+    options:
+      - 1
+      - 2
+      - 3
+      - 4
+
+automation:
+  - id: '1707905395357'
+    alias: Nilan fan setpoint to selector
+    description: ''
+    trigger:
+    - entity_id: sensor.nilan_fan_setpoint
+      platform: state
+    condition: []
+    action:
+    - data_template:
+        entity_id: input_select.nilan_fan_speed
+        option: '{{states.sensor.nilan_fan_setpoint.state}}'
+      service: input_select.select_option
+  - id: '1707905264839'
+    alias: Nilan fan selector to Nilan
+    description: ''
+    trigger:
+    - entity_id: input_select.nilan_fan_speed
+      platform: state
+    condition: []
+    action:
+    - data_template:
+        address: 4747
+        hub: nilan
+        unit: 1
+        value: '{{trigger.to_state.state | int + 100 | round(0) }}'
+      service: modbus.write_register
